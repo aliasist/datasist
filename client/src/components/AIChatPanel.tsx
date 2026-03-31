@@ -53,20 +53,23 @@ export default function AIChatPanel({ facility, onClose }: Props) {
     setLoading(true);
 
     try {
+      // Include conversation history for multi-turn context
+      const history = messages.map((m) => ({ role: m.role, content: m.content }));
       const res = await apiRequest("POST", "/api/ai/chat", {
         question,
         facilityId: facility?.id ?? null,
+        history,
       });
       const data = await res.json();
       if (data.error) {
-        setMessages((prev) => [...prev, { role: "assistant", content: `Error: ${data.error}` }]);
+        setMessages((prev) => [...prev, { role: "assistant", content: `⚠️ ${data.error}` }]);
       } else {
         setMessages((prev) => [...prev, { role: "assistant", content: data.answer }]);
       }
-    } catch {
+    } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Failed to reach AI service. Check server connection." },
+        { role: "assistant", content: "Connection error — could not reach DataSist AI. Please try again." },
       ]);
     } finally {
       setLoading(false);
