@@ -1,0 +1,1 @@
+node_modules/\ndist/\n*.db\n.env\n.env.*\n!.env.example

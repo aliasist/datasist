@@ -1,0 +1,37 @@
+# DataSist — Cloudflare Pages deploy config
+# Part of the ALIASIST project bundle (aliasist.com)
+# Target: data.aliasist.com
+# Deploy via: npx wrangler pages deploy dist/public --project-name=datasist
+
+name = "datasist"
+compatibility_date = "2024-01-01"
+
+[vars]
+APP_NAME = "DataSist"
+APP_VERSION = "2.0.0"
+BRAND = "Aliasist"
+
+# ───────── Cloudflare Pages config ─────────
+# 1. Create a new Pages project in Cloudflare dashboard at:
+#    https://dash.cloudflare.com → Workers & Pages → Create application → Pages
+#
+# 2. Connect to GitHub repo (aliasist/datasist) OR deploy manually:
+#    npx wrangler pages deploy dist/public --project-name=datasist
+#
+# 3. Set environment variables in Cloudflare dashboard:
+#    GROQ_API_KEY = <your key>
+#
+# 4. Add custom domain in Pages → Custom Domains:
+#    data.aliasist.com
+#    Cloudflare will automatically provision SSL.
+#
+# 5. Build settings (for GitHub CI):
+#    Build command:   npm run build
+#    Build output:    dist/public
+#    Root directory:  (leave blank — project root)
+#
+# Note: The Express backend API runs on Cloudflare Workers (or Node.js server).
+# For a full-stack deploy with the Express backend, use a separate Worker:
+#    - Build: npm run build (outputs dist/index.cjs for server)
+#    - Deploy server: fly.io / Railway / Render at api.aliasist.com
+#    - Or: wrap server in a Cloudflare Worker via @hono/node-server adapter
