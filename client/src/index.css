@@ -93,8 +93,9 @@
     font-family: 'General Sans', 'Inter', sans-serif;
   }
 
+  /* CartoDB Dark Matter tiles are natively dark — no filter needed */
   .leaflet-tile {
-    filter: brightness(0.55) saturate(0.3) hue-rotate(100deg) !important;
+    opacity: 1 !important;
   }
 
   .leaflet-control-zoom {
