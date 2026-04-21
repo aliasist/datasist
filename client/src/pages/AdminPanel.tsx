@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { getAdminToken, setAdminToken, subscribeAdminToken } from "@/lib/adminToken";
 import type { DataCenter, InsertDataCenter } from "@shared/schema";
-import { Plus, Edit2, Trash2, X, Save, Shield, Search, Globe, ChevronDown } from "lucide-react";
+import { Plus, Edit2, Trash2, X, Save, Shield, Search, Globe, ChevronDown, Lock, Unlock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type FormMode = "add" | "edit" | null;
@@ -66,6 +67,28 @@ export default function AdminPanel() {
   const [form, setForm] = useState<Partial<InsertDataCenter>>(EMPTY_FORM);
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+  const [hasToken, setHasToken] = useState<boolean>(() => !!getAdminToken());
+  const [tokenPromptOpen, setTokenPromptOpen] = useState<boolean>(() => !getAdminToken());
+  const [tokenInput, setTokenInput] = useState("");
+
+  useEffect(() => subscribeAdminToken((t) => setHasToken(!!t)), []);
+
+  function submitToken() {
+    const trimmed = tokenInput.trim();
+    if (!trimmed) {
+      toast({ title: "Token required", description: "Paste your admin bearer token to unlock write actions.", variant: "destructive" });
+      return;
+    }
+    setAdminToken(trimmed);
+    setTokenInput("");
+    setTokenPromptOpen(false);
+    toast({ title: "Admin unlocked", description: "Write actions enabled for this tab." });
+  }
+
+  function clearToken() {
+    setAdminToken(null);
+    toast({ title: "Admin locked", description: "Write actions are disabled until you re-enter the token." });
+  }
 
   const { data: centers = [], isLoading } = useQuery<DataCenter[]>({
     queryKey: ["/api/data-centers"],
@@ -212,16 +235,36 @@ export default function AdminPanel() {
                 style={{ ...inputStyle, paddingLeft: "24px", width: "180px" }}
               />
             </div>
+            {/* Admin-token lock/unlock */}
             <button
-              data-testid="btn-add-facility"
-              onClick={openAdd}
+              data-testid="btn-admin-lock"
+              onClick={() => (hasToken ? clearToken() : setTokenPromptOpen(true))}
+              title={hasToken ? "Lock admin (clear token for this tab)" : "Enter admin token to unlock write actions"}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded transition-all"
               style={{
-                background: "rgba(113,255,156,0.1)",
-                border: "1px solid rgba(113,255,156,0.3)",
-                color: "var(--color-green)",
+                background: hasToken ? "rgba(113,255,156,0.1)" : "rgba(255,85,85,0.1)",
+                border: `1px solid ${hasToken ? "rgba(113,255,156,0.3)" : "rgba(255,85,85,0.3)"}`,
+                color: hasToken ? "var(--color-green)" : "#ff5555",
+                fontSize: "11px",
+                fontWeight: 600,
+                letterSpacing: "0.06em",
+              }}
+            >
+              {hasToken ? <Unlock size={12} /> : <Lock size={12} />}
+              {hasToken ? "UNLOCKED" : "LOCKED"}
+            </button>
+            <button
+              data-testid="btn-add-facility"
+              onClick={() => (hasToken ? openAdd() : setTokenPromptOpen(true))}
+              disabled={!hasToken}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded transition-all"
+              style={{
+                background: hasToken ? "rgba(113,255,156,0.1)" : "rgba(113,255,156,0.04)",
+                border: `1px solid ${hasToken ? "rgba(113,255,156,0.3)" : "rgba(113,255,156,0.15)"}`,
+                color: hasToken ? "var(--color-green)" : "rgba(113,255,156,0.4)",
                 fontSize: "12px",
                 fontWeight: 600,
+                cursor: hasToken ? "pointer" : "not-allowed",
               }}
             >
               <Plus size={13} />
@@ -578,6 +621,73 @@ export default function AdminPanel() {
               <Save size={13} />
               {createMutation.isPending || updateMutation.isPending ? "Saving..." : mode === "add" ? "Add Facility" : "Save Changes"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Admin-token prompt modal */}
+      {tokenPromptOpen && (
+        <div
+          data-testid="admin-token-modal"
+          onClick={() => setTokenPromptOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 50,
+            background: "rgba(0,0,0,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(420px, 90vw)",
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-border)",
+              borderRadius: "8px",
+              padding: "20px",
+              fontFamily: "'General Sans', sans-serif",
+            }}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <Lock size={14} style={{ color: "#ffb347" }} />
+              <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--color-text)", letterSpacing: "0.05em" }}>
+                Admin token required
+              </span>
+            </div>
+            <p style={{ fontSize: "11px", color: "var(--color-text-muted)", marginBottom: "12px", lineHeight: 1.5 }}>
+              Paste the bearer token configured on the DataSist worker (<code>ADMIN_TOKEN</code>). The token is stored in this tab's sessionStorage and cleared when the tab closes.
+            </p>
+            <input
+              data-testid="admin-token-input"
+              type="password"
+              autoFocus
+              value={tokenInput}
+              onChange={(e) => setTokenInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") submitToken(); }}
+              placeholder="Bearer token..."
+              style={{ ...inputStyle, marginBottom: "12px" }}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setTokenInput(""); setTokenPromptOpen(false); }}
+                className="flex-1 py-2 rounded"
+                style={{ background: "transparent", border: "1px solid var(--color-border)", color: "var(--color-text-muted)", fontSize: "12px" }}
+              >
+                Cancel
+              </button>
+              <button
+                data-testid="btn-token-submit"
+                onClick={submitToken}
+                className="flex-1 flex items-center justify-center gap-2 py-2 rounded"
+                style={{ background: "rgba(113,255,156,0.12)", border: "1px solid rgba(113,255,156,0.35)", color: "var(--color-green)", fontSize: "12px", fontWeight: 700 }}
+              >
+                <Unlock size={13} />
+                Unlock
+              </button>
+            </div>
           </div>
         </div>
       )}

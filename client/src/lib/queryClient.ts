@@ -1,13 +1,25 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { getAdminToken } from "./adminToken";
 
-// Route all API calls to the Cloudflare Worker — no backend server needed
-const API_BASE = "https://datasist-worker.bchooper0730.workers.dev";
+// Route all API calls to the Cloudflare Worker. Override via VITE_API_BASE
+// at build time to point at a custom domain (e.g. https://api.aliasist.tech).
+const API_BASE =
+  (import.meta.env.VITE_API_BASE as string | undefined) ??
+  "https://datasist-worker.bchooper0730.workers.dev";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }
+}
+
+function buildHeaders(hasBody: boolean): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (hasBody) headers["Content-Type"] = "application/json";
+  const token = getAdminToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
 }
 
 export async function apiRequest(
@@ -17,8 +29,8 @@ export async function apiRequest(
 ): Promise<Response> {
   const res = await fetch(`${API_BASE}${url}`, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
+    headers: buildHeaders(data !== undefined),
+    body: data !== undefined ? JSON.stringify(data) : undefined,
   });
 
   await throwIfResNotOk(res);
@@ -31,7 +43,9 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(`${API_BASE}${queryKey.join("/")}`);
+    const res = await fetch(`${API_BASE}${queryKey.join("/")}`, {
+      headers: buildHeaders(false),
+    });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;
